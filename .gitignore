@@ -1,4 +1,5 @@
 Archive/
 cache/
 **/__pycache__/
+.vscode
 

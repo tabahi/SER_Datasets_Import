@@ -159,18 +159,23 @@ def create_RAVDESS_file_objects(db_path, deselect=None):
                                 statement_format[statement]  +  "-" +  repetition_format[repetition]  + '-*.wav')
                             
                             for wav_file_found in file_to_look:
+                                #print(wav_file_found, emotion_cat)
                                 this_clip_info = Clip_file_Class(2, wav_file_found, int(speaker_id), int(scenario),  sex, emotion_cat, int(intensity_cat), None,None, None, None, int(statement), int(repetition))
                                 array_of_clips = np.append(array_of_clips, this_clip_info)
                                 
 
 
     print("Total Clips", len(array_of_clips))
-    if(len(array_of_clips)<1): raise Exception("No clips found")  
+    if(len(array_of_clips)<1): raise Exception("No clips found")
+
+    #print(array_of_clips[1].filepath, array_of_clips[1].emotion_cat)
+    
+    
     return array_of_clips
 
 
 
-def create_IEMOCAP_file_objects(db_path, deselect=['F', 'D', 'U', 'R', 'E', 'X']):
+def create_IEMOCAP_file_objects(db_path, deselect=['F', 'D', 'U', 'R', 'X']):
     '''
     For importing IEMOCAP dataset (wav files only)
     https://sail.usc.edu/iemocap/iemocap_release.htm
@@ -186,13 +191,14 @@ def create_IEMOCAP_file_objects(db_path, deselect=['F', 'D', 'U', 'R', 'E', 'X']
     sessions = {'01':'Session1', '02':'Session2', '03':'Session3', '04':'Session4', '05':'Session5'}
     
     scenarios = {'1':'script','2':'impro'}
-    emotion_cats_format = {'N':'neu', 'H':'hap', 'S':'sad', 'A':'ang',  'F':'fea', 'D':'dis', 'U':'sur', 'R':'fru', 'E':'exc', 'Y':'exc', 'X':'xxx'}
+    emotion_cats_format = {'N':'neu', 'H':'hap', 'S':'sad', 'A':'ang',  'F':'fea', 'D':'dis', 'U':'sur', 'R':'fru', 'Y':'exc', 'X':'xxx'}
     # Add  'Y':'exc' for merging Happiness and Excitement
     # Excluded emotion_cats: 'F':'fea', 'D':'dis', 'U':'sur', 'R':'fru', 'E':'exc'
     #emotion_catal content 10 cats - angry, happy, sad, neutral, frustrated, excited, fearful, disgusted, excited, other	
 
     raters_id = {'C-E1':0, 'C-E2': 1, 'C-E3': 2, 'C-E4': 3, 'C-E5':4,'C-E6':5, 'C-F1': 6, 'C-F2': 7, 'C-F3': 8, 'C-M1': 9, 'C-M3': 10, 'C-M5': 11,  'A-E1': 12, 'A-E2': 13,'A-E3': 14, 'A-E4': 15, 'A-E5': 16, 'A-E6': 17, 'A-F1': 18,  'A-F2': 19, 'A-F3': 20, 'A-M1': 21, 'A-M3': 22, 'A-M5': 23}
 
+    
     array_of_clips = np.array([])
 
     for sess in sessions:
@@ -214,7 +220,7 @@ def create_IEMOCAP_file_objects(db_path, deselect=['F', 'D', 'U', 'R', 'E', 'X']
                         for emo in emotion_cats_format:
                             
 
-                            if(splitted[4]==emotion_cats_format[emo]) and (emo not in deselect):
+                            if(splitted[4]==emotion_cats_format[emo]) and  (emo not in deselect):
                                 _emox = emo
                                 if (emo == 'Y'):    #change excitement to happy
                                     _emox = 'H'
@@ -263,12 +269,16 @@ def create_IEMOCAP_file_objects(db_path, deselect=['F', 'D', 'U', 'R', 'E', 'X']
                                     
                                     next_line += 1
 
+                                #rate_mean = np.mean(this_clip_info.raters_labels_cat, axis=0)
+                                #rate_mean = rate_mean / np.sum(rate_mean)
                                 
+                                #if( len(np.where(rate_mean>=0.667)[0])==1 ) : 
                                 array_of_clips = np.append(array_of_clips, this_clip_info)
 
                                 break
 
     print("Total Clips", len(array_of_clips))
+    
     if(len(array_of_clips)<1): raise Exception("No clips found")  
     return array_of_clips
 
@@ -282,9 +292,9 @@ def create_MSPIMPROV_file_objects(db_path, deselect=None):
     #scenario: 0=unknown, 1=script, 2=improv, 3=radio/TV, 4=elicited, 5=natural, 6=script-in-improv
     scenarios = {'R':1, 'S':2, 'P':5, 'T':6}
 
-    emotion_cats_format = {'N':'N', 'H':'H', 'S':'S', 'A':'A',}
+    emotion_cats_format = {'N':'N', 'H':'H', 'S':'S', 'A':'A',} #main emotions that are already complied from averaging of individual raters
+    raters_cats_format = {'N':'Neutral', 'H':'Happy', 'S':'Sad', 'A':'Angry', 'U': 'Surprised', 'E' : 'Excited', 'F' : 'Fearful', 'P' : 'Depressed', 'R' :'Frustrated', 'D' : 'Disgusted', 'X' : 'Other'}   #these are used to compile the rating my own way
 
-    raters_list = ['abc', 'xyz']
 
     eval_file = os.path.join(db_path, "Evalution.txt")
         
@@ -331,23 +341,27 @@ def create_MSPIMPROV_file_objects(db_path, deselect=None):
 
             for wav_file in wav_files:
                 this_clip_info = Clip_file_Class(3, wav_file, speaker_id=speaker_id, scenario=int(scenarios[scene]), sex=sex, emotion_cat=emotion_cats_format[emotion], intensity_cat=1, valance=valance, arousal=arousal, dominance=dominance, naturalness=naturalness, statement=sentence, repetition=turn)
-            '''
+            
+            rate_mean = np.zeros((len(raters_cats_format),))
             # parse individual ratings
             next_line = line_no + 1
             while(next_line < len(eval_file_lines) - 1) and (len(eval_file_lines[next_line])>10) and  ("-p" in eval_file_lines[next_line]):
                 splits_2 = eval_file_lines[next_line].split(';')
-                rater_name = splits_2[0].strip()
-                if(rater_name not in raters_list):
-
-                    raters_list.append(rater_name)
-                    #
                 
+                for index, emo_types in enumerate(raters_cats_format):
+                    if(raters_cats_format[emo_types] in splits_2[1].strip()):
+                        rate_mean[index] += 1
                 #exit()
                 next_line += 1
-            '''
-            array_of_clips = np.append(array_of_clips, this_clip_info)
+                
+            rate_mean = rate_mean / np.sum(rate_mean)
+            if( len(np.where(rate_mean>=0.667)[0])==1 ) :
+                this_emo = list(raters_cats_format)[np.where(rate_mean==np.max(rate_mean))[0][0]]
+                this_clip_info.emotion_cat = this_emo
+                array_of_clips = np.append(array_of_clips, this_clip_info)
     
     print("Total Clips", len(array_of_clips))
+    
     if(len(array_of_clips)<1): raise Exception("No clips found")  
     return array_of_clips
                 
@@ -369,7 +383,7 @@ def create_ShemoDB_file_objects(db_path, deselect=None):
 
     print("Creating file info objects")
 
-    Sex_format = {"M":"M\\", "F":"F\\"}
+    Sex_format = {"M":"male\\", "F":"female\\"}
 
     emotion_cats_format = {'N':'N', 'H':'H', 'S':'S', 'A':'A', 'F':'F', 'U':'W'}
 
@@ -424,12 +438,20 @@ def create_DEMOS_file_objects(db_path, deselect=['N']):
                 if(spkr_id<10):
                     speaker_id = '0' + str(spkr_id)
 
-                file_to_look = glob.glob(db_path +  'PR_' +  Sex_format[sex] + '_'+ speaker_id + '_' + Emotions_format[emotion]  + '*.wav')
+                file_to_look = glob.glob(db_path +  'DEMOS\\PR_' +  Sex_format[sex] + '_'+ speaker_id + '_' + Emotions_format[emotion]  + '*.wav')
                 
                 for index, wav_file_found in enumerate(file_to_look):
-                    this_clip_info = Clip_file_Class(5, wav_file_found, int(speaker_id), 1, sex, emotion, 1, statement=index, repetition=1)
+                    this_clip_info = Clip_file_Class(5, wav_file_found, int(speaker_id), 4, sex, emotion, 1, statement=index, repetition=1)
                     array_of_clips = np.append(array_of_clips, this_clip_info)
                     #print(wav_file_found)
+
+                file_to_look = glob.glob(db_path +  'NEU\\' +  Sex_format[sex] + '_'+ speaker_id + '_' + Emotions_format[emotion]  + '*.wav')
+                
+                for index, wav_file_found in enumerate(file_to_look):
+                    this_clip_info = Clip_file_Class(5, wav_file_found, int(speaker_id), 4, sex, emotion, 1, statement=index, repetition=1)
+                    array_of_clips = np.append(array_of_clips, this_clip_info)
+                    #print(wav_file_found)
+
 
         
     print("Total Clips", len(array_of_clips))
@@ -460,7 +482,9 @@ def create_DB_file_objects(db_name, db_path, deselect=None):
 
     db_name="ShemoDB", db_path="C:\\DB\\shemo\\";
 
-    db_name="DEMoS", db_path="C:\\DB\\wav_DEMoS\\DEMOS\\";
+    db_name="DEMoS", db_path="C:\\DB\\wav_DEMoS\\";
+    
+    db_name="MSPIMPROV", db_path="C:\\DB\\MSP-IMPROV\\";
 
     '''
     if(db_name=="EmoDB"):
